@@ -17,49 +17,62 @@ PROCESSED_DIR = "data/processed"
 if not os.path.exists(PROCESSED_DIR):
     os.makedirs(PROCESSED_DIR)
 
-# Check API key
-if not API_KEY:
-    raise ValueError("Failed to load API key. Please check your .env file.")
-openai.api_key = API_KEY
 
-# Read and process the input file
-processed_data = []
-try:
-    with open(INPUT_FILE, "r") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for idx, row in enumerate(reader):
-            if idx >= 15:  # Limit to the first 100 rows
-                break
+def check_api_key():
+    if not API_KEY:
+        raise ValueError("Failed to load API key. Please check your .env file.")
+    openai.api_key = API_KEY
 
-            manga_info = f"Title: {row['Title']}"
-            messages = [
-                {"role": "system", "content": "You are a manga expert."},
-                {
-                    "role": "user",
-                    "content": f"Provide a summary and analysis for the following manga:\n\n{manga_info}",
-                },
-            ]
 
-            try:
-                response = openai.chat.completions.create(
-                    model=MODEL_NAME, messages=messages, max_tokens=500
-                )
-                summary = response.choices[0].message.content
-                row["summary"] = summary
-                processed_data.append(row)
-            except Exception as e:
-                print(f"Error processing row '{row['Title']}': {e}")
+def process_manga_data(input_file, output_file, model_name, api_key):
+    # Ensure the processed directory exists
+    processed_dir = os.path.dirname(output_file)
+    if not os.path.exists(processed_dir):
+        os.makedirs(processed_dir)
 
-    # Save the processed data to a new CSV
-    with open(OUTPUT_FILE, "w", newline="") as csvfile:
-        fieldnames = list(processed_data[0].keys())
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(processed_data)
+    # Check API key
+    if not api_key:
+        raise ValueError("Failed to load API key. Please check your .env file.")
+    openai.api_key = api_key
 
-    print(f"Processed data saved to {OUTPUT_FILE}")
+    # Read and process the input file
+    processed_data = []
+    try:
+        with open(input_file, "r") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for idx, row in enumerate(reader):
+                if idx >= 15:  # Limit to the first 100 rows
+                    break
 
-except FileNotFoundError:
-    print(f"Input file '{INPUT_FILE}' not found.")
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
+                manga_info = f"Title: {row['Title']}"
+                messages = [
+                    {"role": "system", "content": "You are a manga expert."},
+                    {
+                        "role": "user",
+                        "content": f"Provide a summary and analysis for the following manga:\n\n{manga_info}",
+                    },
+                ]
+
+                try:
+                    response = openai.chat.completions.create(
+                        model=model_name, messages=messages, max_tokens=1000
+                    )
+                    summary = response.choices[0].message.content
+                    row["summary"] = summary
+                    processed_data.append(row)
+                except Exception as e:
+                    print(f"Error processing row '{row['Title']}': {e}")
+
+        # Save the processed data to a new CSV
+        with open(output_file, "w", newline="") as csvfile:
+            fieldnames = list(processed_data[0].keys())
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(processed_data)
+
+        print(f"Processed data saved to {output_file}")
+
+    except FileNotFoundError:
+        print(f"Input file '{input_file}' not found.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
